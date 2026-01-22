@@ -7,7 +7,13 @@ from rich.console import Console
 from rich.table import Table
 
 from . import __version__
-from .downloader import download_playlist_sync, fetch_playlist_files_sync, format_size
+from .downloader import (
+    download_playlist_sync,
+    download_playlist_zip_sync,
+    fetch_playlist_files_sync,
+    format_size,
+    DownloadError,
+)
 from .nfo import generate_arc_nfos, generate_tvshow_nfo
 from .scraper import fetch_metadata_sync, ScraperError
 
@@ -153,6 +159,13 @@ def info(ctx: click.Context, arc_slug: str) -> None:
 @click.option("-n", "--dry-run", is_flag=True, help="Show what would be downloaded")
 @click.option("--no-nfo", is_flag=True, help="Skip NFO file generation")
 @click.option("--resume/--no-resume", default=True, help="Resume interrupted downloads")
+@click.option(
+    "-m",
+    "--method",
+    type=click.Choice(["auto", "zip", "individual"]),
+    default="auto",
+    help="Download method: zip (bulk), individual (per-file), auto (try zip first)",
+)
 @click.pass_context
 def download(
     ctx: click.Context,
@@ -164,6 +177,7 @@ def download(
     dry_run: bool,
     no_nfo: bool,
     resume: bool,
+    method: str,
 ) -> None:
     """Download an arc."""
     quiet = ctx.obj.get("quiet", False)
@@ -245,9 +259,22 @@ def download(
     if not quiet:
         console.print(f"[dim]Output: {arc_output_dir}[/dim]\n")
 
-    # Download files
+    # Download files with selected method
     try:
-        downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume)
+        if method == "individual":
+            # Force individual file downloads
+            downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume)
+        elif method == "zip":
+            # Force zip download
+            downloaded_files = download_playlist_zip_sync(playlist, arc_output_dir, resume=resume)
+        else:  # auto
+            # Try zip first, fallback to individual on error
+            try:
+                downloaded_files = download_playlist_zip_sync(playlist, arc_output_dir, resume=resume)
+            except (DownloadError, Exception) as e:
+                if not quiet:
+                    console.print(f"[yellow]Zip download failed ({e}), falling back to individual downloads[/yellow]")
+                downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume)
     except Exception as e:
         console.print(f"[red]Download failed: {e}[/red]")
         raise SystemExit(1)

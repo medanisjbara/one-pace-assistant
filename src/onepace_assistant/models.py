@@ -96,4 +96,5 @@ class PixelDrainList(BaseModel):
 
     id: str
     title: str
+    download_href: str | None = Field(default=None, description="Direct URL for zip download")
     files: list[PixelDrainFile] = Field(default_factory=list)
