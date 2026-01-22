@@ -6,6 +6,8 @@ An unofficial CLI tool to download and organize [One Pace](https://onepace.net) 
 
 > 📢 This project is a successor to the now-archived [one-pace-plex-assistant](https://github.com/JakeLunn/one-pace-plex-assistant), rebuilt from the ground up with broader media server support.
 
+> ⚠️ **Disclaimer:** This is an unofficial tool that relies on scraping [onepace.net](https://onepace.net). If the site undergoes major changes, this tool may break until updated. Please [open an issue](https://github.com/JakeLunn/one-pace-assistant/issues) if you encounter problems.
+
 ## Features
 
 - 📥 **Download arcs** with configurable resolution, audio, and subtitles
