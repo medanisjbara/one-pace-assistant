@@ -162,9 +162,9 @@ def info(ctx: click.Context, arc_slug: str) -> None:
 @click.option(
     "-m",
     "--method",
-    type=click.Choice(["auto", "zip", "individual"]),
-    default="auto",
-    help="Download method: zip (bulk), individual (per-file), auto (try zip first)",
+    type=click.Choice(["individual", "zip", "auto"]),
+    default="individual",
+    help="Download method: individual (per-file, default), zip (bulk), auto (try zip first)",
 )
 @click.pass_context
 def download(
@@ -262,6 +262,9 @@ def download(
     # Download files with selected method
     try:
         if method == "individual":
+            # Show hint about zip option
+            if not quiet:
+                console.print("[dim]💡 Tip: Use --method zip to download all as a single archive. This may help delay rate limits.[/dim]\n")
             # Force individual file downloads
             downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume)
         elif method == "zip":

@@ -237,6 +237,11 @@ def download_playlist_zip_sync(
 
     console.print(f"[green]Downloading {len(file_list.files)} files as zip archive[/green]")
 
+    # Calculate estimated total size from individual files
+    # The actual zip will be slightly larger due to compression overhead,
+    # but for video files (already compressed) this is a good estimate
+    estimated_total = sum(f.size for f in file_list.files)
+
     # Download zip to temp file
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_file:
         tmp_path = Path(tmp_file.name)
@@ -258,9 +263,9 @@ def download_playlist_zip_sync(
                 with client.stream("GET", zip_url) as response:
                     response.raise_for_status()
                     
-                    # Get total size from content-length if available
-                    total_size = int(response.headers.get("content-length", 0))
-                    task_id = progress.add_task("Downloading", total=total_size or None)
+                    # Use content-length if available, otherwise use our estimate
+                    total_size = int(response.headers.get("content-length", 0)) or estimated_total
+                    task_id = progress.add_task("Downloading", total=total_size)
 
                     with open(tmp_path, "wb") as f:
                         for chunk in response.iter_bytes(chunk_size=8192):
