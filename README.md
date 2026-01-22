@@ -17,6 +17,50 @@ An unofficial CLI tool to download and organize [One Pace](https://onepace.net) 
 
 ## Installation
 
+### Method 1: Standalone Executable (Recommended)
+
+Download the latest version for your operating system from the [GitHub Releases](https://github.com/JakeLunn/one-pace-assistant/releases) page.
+
+- **Windows**: `onepace-windows.exe`
+- **macOS**: `onepace-macos.zip`
+- **Linux**: `onepace-linux.tar.gz`
+
+#### Adding to PATH
+
+To run `onepace` from any terminal, you need to add the executable to your system's PATH.
+
+**Windows (PowerShell)**:
+1.  Move `onepace-windows.exe` to a permanent location (e.g., `C:\Program Files\OnePace\`).
+2.  **Rename the file to `onepace.exe`** (this allows you to run it by just typing `onepace`).
+3.  Open PowerShell as Administrator.
+4.  Run the following command to append the directory to your User PATH:
+    ```powershell
+    [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\OnePace", "User")
+    ```
+5.  Restart your terminal for changes to take effect.
+
+**macOS**:
+1.  Unzip the file: `unzip onepace-macos.zip`
+2.  Move the binary to `/usr/local/bin` (no need to edit PATH if this directory is already included):
+    ```bash
+    sudo mv onepace /usr/local/bin/onepace
+    sudo chmod +x /usr/local/bin/onepace
+    ```
+3.  You can now run `onepace` from any terminal.
+
+**Linux**:
+1.  Extract the tarball: `tar -xzvf onepace-linux.tar.gz`
+2.  Move the binary to `/usr/local/bin`:
+    ```bash
+    sudo mv onepace /usr/local/bin/onepace
+    sudo chmod +x /usr/local/bin/onepace
+    ```
+3.  You can now run `onepace` from any terminal.
+
+### Method 2: Python Package
+
+Requires Python 3.11+.
+
 ```bash
 # Clone the repository
 git clone https://github.com/JakeLunn/one-pace-assistant.git
