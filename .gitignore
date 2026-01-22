@@ -148,3 +148,4 @@ Thumbs.db
 
 # Project Specific
 /.docs/
+/.ruff_cache/
