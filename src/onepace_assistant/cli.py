@@ -8,14 +8,15 @@ from rich.table import Table
 
 from . import __version__
 from .downloader import (
+    DownloadError,
     download_playlist_sync,
     download_playlist_zip_sync,
     fetch_playlist_files_sync,
     format_size,
-    DownloadError,
 )
 from .nfo import generate_arc_nfos, generate_tvshow_nfo
-from .scraper import fetch_metadata_sync, ScraperError
+from .poster_utils import copy_poster_to_arc_dir, find_poster_for_arc
+from .scraper import ScraperError, fetch_metadata_sync
 
 console = Console()
 
@@ -166,6 +167,12 @@ def info(ctx: click.Context, arc_slug: str) -> None:
     default="individual",
     help="Download method: individual (per-file, default), zip (bulk), auto (try zip first)",
 )
+@click.option(
+    "--posters-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Optional: Directory containing poster images to copy after download",
+)
 @click.pass_context
 def download(
     ctx: click.Context,
@@ -178,6 +185,7 @@ def download(
     no_nfo: bool,
     resume: bool,
     method: str,
+    posters_dir: Path | None,
 ) -> None:
     """Download an arc."""
     quiet = ctx.obj.get("quiet", False)
@@ -226,7 +234,7 @@ def download(
         actual_sub = sub
 
     if not playlist:
-        console.print(f"[red]No playlist found matching preferences[/red]")
+        console.print("[red]No playlist found matching preferences[/red]")
         console.print("[dim]Try 'onepace info {arc_slug}' to see available options[/dim]")
         raise SystemExit(1)
 
@@ -276,7 +284,10 @@ def download(
                 downloaded_files = download_playlist_zip_sync(playlist, arc_output_dir, resume=resume)
             except (DownloadError, Exception) as e:
                 if not quiet:
-                    console.print(f"[yellow]Zip download failed ({e}), falling back to individual downloads[/yellow]")
+                    console.print(
+                        f"[yellow]Zip download failed ({e}), "
+                        "falling back to individual downloads[/yellow]"
+                    )
                 downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume)
     except Exception as e:
         console.print(f"[red]Download failed: {e}[/red]")
@@ -297,8 +308,259 @@ def download(
         if not quiet:
             console.print(f"[green]Generated {len(video_files) + 1} NFO files[/green]")
 
-    console.print(f"\n[bold green]✓ Download complete![/bold green]")
+    # Copy poster if posters-dir provided
+    if posters_dir and downloaded_files:
+        poster_source = find_poster_for_arc(arc.slug, posters_dir)
+        if poster_source:
+            try:
+                poster_dest = copy_poster_to_arc_dir(poster_source, arc_output_dir)
+                if not quiet:
+                    console.print(f"[green]Copied poster: {poster_dest.name}[/green]")
+            except (OSError, PermissionError) as e:
+                console.print(f"[yellow]Warning: Could not copy poster: {e}[/yellow]")
+        else:
+            if not quiet:
+                console.print(
+                    f"[yellow]No matching poster found for '{arc.slug}' "
+                    f"in {posters_dir}[/yellow]"
+                )
+
+    console.print("\n[bold green]✓ Download complete![/bold green]")
     console.print(f"[dim]Files saved to: {arc_output_dir}[/dim]")
+
+
+@cli.command("generate-nfo")
+@click.option(
+    "-i",
+    "--input",
+    "input_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    required=True,
+    help="Directory containing video files organized by arc subdirectories",
+)
+@click.option(
+    "-p",
+    "--posters",
+    "posters_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Optional: Directory containing poster images to copy",
+)
+@click.pass_context
+def generate_nfo_cmd(ctx: click.Context, input_dir: Path, posters_dir: Path | None) -> None:
+    """Generate NFO files for existing video files.
+
+    Video files must be organized in subdirectories by arc.
+    The command will fetch metadata and generate appropriate NFO files.
+
+    Example directory structure:
+        ./downloads/romance-dawn/Romance Dawn 01.mkv
+        ./downloads/romance-dawn/Romance Dawn 02.mkv
+        ./downloads/water-seven/Water Seven 01.mkv
+    """
+    quiet = ctx.obj.get("quiet", False)
+    video_extensions = (".mkv", ".mp4", ".avi")
+
+    # Scan for arc subdirectories
+    arc_dirs = [d for d in input_dir.iterdir() if d.is_dir()]
+
+    if not arc_dirs:
+        console.print("[red]No subdirectories found in input directory.[/red]")
+        console.print("[dim]Expected structure: input_dir/arc-slug/video-files.mkv[/dim]")
+        raise SystemExit(1)
+
+    # Fetch metadata
+    if not quiet:
+        console.print("[cyan]Fetching arc metadata...[/cyan]")
+
+    try:
+        arcs = fetch_metadata_sync()
+    except ScraperError as e:
+        console.print(f"[red]Error fetching metadata: {e}[/red]")
+        raise SystemExit(1)
+
+    # Build slug lookup (case-insensitive, flexible separators)
+    arc_lookup = {arc.slug.lower(): arc for arc in arcs}
+
+    # Process results tracking
+    results = {"nfo_generated": 0, "posters_copied": 0, "skipped": 0, "errors": []}
+
+    # Generate tvshow.nfo in parent directory
+    generate_tvshow_nfo(input_dir)
+    results["nfo_generated"] += 1
+    if not quiet:
+        console.print("[green]Generated tvshow.nfo[/green]")
+
+    # Process each arc directory
+    for arc_dir in arc_dirs:
+        # Normalize directory name to slug format
+        dir_slug = arc_dir.name.lower().replace(" ", "-").replace("_", "-")
+
+        # Find matching arc
+        arc = arc_lookup.get(dir_slug)
+        if not arc:
+            if not quiet:
+                console.print(f"[yellow]Skipping '{arc_dir.name}': No matching arc found[/yellow]")
+            results["skipped"] += 1
+            continue
+
+        # Find video files
+        video_files = [
+            f for f in arc_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in video_extensions
+        ]
+
+        if not video_files:
+            if not quiet:
+                console.print(f"[yellow]Skipping '{arc_dir.name}': No video files found[/yellow]")
+            results["skipped"] += 1
+            continue
+
+        # Generate episode NFOs
+        nfo_paths = generate_arc_nfos(arc, video_files, arc_dir)
+        results["nfo_generated"] += len(nfo_paths)
+        if not quiet:
+            console.print(
+                f"[green]Generated {len(nfo_paths)} episode NFOs for '{arc.title}'[/green]"
+            )
+
+        # Copy poster if provided
+        if posters_dir:
+            poster_source = find_poster_for_arc(arc.slug, posters_dir)
+            if poster_source:
+                try:
+                    copy_poster_to_arc_dir(poster_source, arc_dir)
+                    results["posters_copied"] += 1
+                    if not quiet:
+                        console.print(f"[green]Copied poster for '{arc.title}'[/green]")
+                except (OSError, PermissionError) as e:
+                    results["errors"].append(f"{arc.slug}: {e}")
+            else:
+                if not quiet:
+                    console.print(f"[dim]No poster found for '{arc.slug}'[/dim]")
+
+    # Summary
+    console.print("\n[bold]Summary:[/bold]")
+    console.print(f"  NFO files generated: {results['nfo_generated']}")
+    if posters_dir:
+        console.print(f"  Posters copied: {results['posters_copied']}")
+    if results["skipped"]:
+        console.print(f"  Directories skipped: {results['skipped']}")
+    if results["errors"]:
+        console.print(f"  [red]Errors: {len(results['errors'])}[/red]")
+        for error in results["errors"]:
+            console.print(f"    [red]• {error}[/red]")
+
+
+@cli.command("add-posters")
+@click.option(
+    "-i",
+    "--input",
+    "input_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    required=True,
+    help="Directory containing arc subdirectories",
+)
+@click.option(
+    "-p",
+    "--posters",
+    "posters_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    required=True,
+    help="Directory containing poster images",
+)
+@click.option(
+    "--require-nfo",
+    is_flag=True,
+    default=False,
+    help="Only copy posters to directories that contain NFO files",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Overwrite existing poster.jpg files",
+)
+@click.pass_context
+def add_posters_cmd(
+    ctx: click.Context,
+    input_dir: Path,
+    posters_dir: Path,
+    require_nfo: bool,
+    force: bool,
+) -> None:
+    """Copy poster images to arc directories.
+
+    Searches for poster images matching arc slugs and copies them
+    as 'poster.jpg' to the respective arc directories.
+    """
+    quiet = ctx.obj.get("quiet", False)
+
+    # Scan for arc subdirectories
+    arc_dirs = [d for d in input_dir.iterdir() if d.is_dir()]
+
+    if not arc_dirs:
+        console.print("[red]No subdirectories found in input directory.[/red]")
+        raise SystemExit(1)
+
+    # Process results tracking
+    results = {"copied": 0, "skipped": 0, "no_match": 0, "errors": []}
+
+    for arc_dir in arc_dirs:
+        # Check for existing poster
+        existing_poster = arc_dir / "poster.jpg"
+        if existing_poster.exists() and not force:
+            if not quiet:
+                console.print(
+                    f"[dim]Skipping '{arc_dir.name}': "
+                    "poster.jpg already exists (use --force to overwrite)[/dim]"
+                )
+            results["skipped"] += 1
+            continue
+
+        # Check for NFO files if required
+        if require_nfo:
+            nfo_files = list(arc_dir.glob("*.nfo"))
+            if not nfo_files:
+                if not quiet:
+                    console.print(
+                        f"[dim]Skipping '{arc_dir.name}': "
+                        "No NFO files found (--require-nfo is set)[/dim]"
+                    )
+                results["skipped"] += 1
+                continue
+
+        # Normalize directory name to slug format
+        dir_slug = arc_dir.name.lower().replace(" ", "-").replace("_", "-")
+
+        # Find matching poster
+        poster_source = find_poster_for_arc(dir_slug, posters_dir)
+        if not poster_source:
+            if not quiet:
+                console.print(f"[yellow]No matching poster found for '{arc_dir.name}'[/yellow]")
+            results["no_match"] += 1
+            continue
+
+        # Copy poster
+        try:
+            copy_poster_to_arc_dir(poster_source, arc_dir)
+            results["copied"] += 1
+            if not quiet:
+                console.print(f"[green]Copied poster to '{arc_dir.name}'[/green]")
+        except (OSError, PermissionError) as e:
+            results["errors"].append(f"{arc_dir.name}: {e}")
+
+    # Summary
+    console.print("\n[bold]Summary:[/bold]")
+    console.print(f"  Posters copied: {results['copied']}")
+    if results["skipped"]:
+        console.print(f"  Directories skipped: {results['skipped']}")
+    if results["no_match"]:
+        console.print(f"  No matching poster: {results['no_match']}")
+    if results["errors"]:
+        console.print(f"  [red]Errors: {len(results['errors'])}[/red]")
+        for error in results["errors"]:
+            console.print(f"    [red]• {error}[/red]")
 
 
 def main() -> None:
