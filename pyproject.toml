@@ -1,6 +1,6 @@
 [project]
 name = "onepace-assistant"
-version = "0.1.0"
+version = "0.0.0"
 description = "CLI tool to download and organize One Pace files for media servers"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -51,3 +51,12 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+commit_message = "chore(release): {version}"
+tag_format = "v{version}"
+
+[tool.semantic_release.remote]
+type = "github"

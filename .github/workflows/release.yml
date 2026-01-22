@@ -1,0 +1,134 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  # Step 1: Determine if a new version should be released
+  semantic-release:
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python Semantic Release
+        id: release
+        uses: python-semantic-release/python-semantic-release@v9.21.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: "github-actions[bot]"
+          git_committer_email: "github-actions[bot]@users.noreply.github.com"
+
+  # Step 2: Build executables for all platforms
+  build:
+    needs: semantic-release
+    if: needs.semantic-release.outputs.released == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: onepace-windows.exe
+          - os: ubuntu-latest
+            artifact_name: onepace-linux.tar.gz
+          - os: macos-latest
+            artifact_name: onepace-macos.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.semantic-release.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install .
+
+      - name: Build with Nuitka
+        uses: Nuitka/Nuitka-Action@main
+        with:
+          nuitka-version: main
+          script-name: src/onepace_assistant/__main__.py
+          mode: onefile
+          output-file: onepace
+          include-module: |
+            ctypes
+            asyncio
+          include-package: |
+            httpx
+            httpcore
+            pydantic
+            pydantic_core
+            rich
+            certifi
+
+      - name: List build output (debug)
+        shell: bash
+        run: |
+          echo "=== Build directory contents ==="
+          find build -type f -o -type d 2>/dev/null | head -50 || true
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          
+          # Windows: copy .exe
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            if [ -f "build/onepace.exe" ]; then
+              cp "build/onepace.exe" dist/${{ matrix.artifact_name }}
+              echo "Packaged Windows exe: build/onepace.exe"
+            else
+              echo "Error: build/onepace.exe not found"
+              exit 1
+            fi
+          fi
+          
+          # Linux: tar .bin (no extension in onefile mode usually)
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            if [ -f "build/onepace" ]; then
+              tar -czvf dist/${{ matrix.artifact_name }} -C build onepace
+              echo "Packaged Linux tarball from: build/onepace"
+            else
+              echo "Error: build/onepace not found"
+              exit 1
+            fi
+          fi
+          
+          # macOS: zip binary
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            if [ -f "build/onepace" ]; then
+              cd build && zip ../dist/${{ matrix.artifact_name }} onepace && cd ..
+              echo "Packaged macOS binary: build/onepace"
+            else
+              echo "Error: build/onepace not found"
+              exit 1
+            fi
+          fi
+          
+          echo "=== Dist contents ==="
+          ls -la dist/ || echo "dist is empty!"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.semantic-release.outputs.tag }}
+          files: dist/*
+
