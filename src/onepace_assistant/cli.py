@@ -157,6 +157,11 @@ def info(ctx: click.Context, arc_slug: str) -> None:
 )
 @click.option("-s", "--sub", default=None, help="Subtitle language (en, none, or omit for auto)")
 @click.option("-d", "--dub", default="ja", help="Audio language (ja, en)")
+@click.option(
+    "--variant",
+    default=None,
+    help="Arc variant (e.g., 'extended' for extended dub versions)",
+)
 @click.option("-n", "--dry-run", is_flag=True, help="Show what would be downloaded")
 @click.option("--no-nfo", is_flag=True, help="Skip NFO file generation")
 @click.option("--resume/--no-resume", default=True, help="Resume interrupted downloads")
@@ -181,6 +186,7 @@ def download(
     resolution: str,
     sub: str,
     dub: str,
+    variant: str | None,
     dry_run: bool,
     no_nfo: bool,
     resume: bool,
@@ -215,22 +221,22 @@ def download(
         # Auto-detect based on dub language
         if dub == "en":
             # Try English dub without subs first, fall back to with subs
-            playlist = arc.get_playlist(resolution=int(resolution), sub=None, dub=dub)
+            playlist = arc.get_playlist(resolution=int(resolution), sub=None, dub=dub, variant=variant)
             if playlist:
                 actual_sub = "none"
             else:
-                playlist = arc.get_playlist(resolution=int(resolution), sub="en", dub=dub)
+                playlist = arc.get_playlist(resolution=int(resolution), sub="en", dub=dub, variant=variant)
                 if playlist:
                     actual_sub = "en"
         else:
             # For non-English dubs, default to English subs
-            playlist = arc.get_playlist(resolution=int(resolution), sub="en", dub=dub)
+            playlist = arc.get_playlist(resolution=int(resolution), sub="en", dub=dub, variant=variant)
             if playlist:
                 actual_sub = "en"
     else:
         # User explicitly specified subtitle preference
         sub_pref = None if sub.lower() == "none" else sub
-        playlist = arc.get_playlist(resolution=int(resolution), sub=sub_pref, dub=dub)
+        playlist = arc.get_playlist(resolution=int(resolution), sub=sub_pref, dub=dub, variant=variant)
         actual_sub = sub
 
     if not playlist:
