@@ -161,6 +161,9 @@ onepace download romance-dawn -r 480
 # Download English dub version (no subtitles)
 onepace download romance-dawn --dub en --sub none
 
+# Download extended dub version (some arcs like Wano have this)
+onepace download wano --dub en --variant extended
+
 # Custom output directory
 onepace download romance-dawn --output ~/media/anime/OnePace
 onepace download romance-dawn -o /mnt/media/anime
@@ -213,6 +216,7 @@ To avoid interruptions and support the service that makes these downloads possib
 | `--resolution` | `-r` | `1080` | Video resolution (480, 720, 1080) |
 | `--sub` | `-s` | auto | Subtitle language (en, none) |
 | `--dub` | `-d` | `ja` | Audio language (ja, en) |
+| `--variant` | — | — | Arc variant (e.g., `extended` for extended dub) |
 | `--dry-run` | `-n` | — | Preview without downloading |
 | `--no-nfo` | — | — | Skip NFO metadata generation |
 | `--resume/--no-resume` | — | resume | Resume interrupted downloads |
