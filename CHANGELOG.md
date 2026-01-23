@@ -1,6 +1,21 @@
 # CHANGELOG
 
 
+## v0.2.0 (2026-01-23)
+
+### Documentation
+
+- Added --variant example to readme
+  ([`5e8a8c3`](https://github.com/JakeLunn/one-pace-assistant/commit/5e8a8c37fe3d45e57805a8e1ac53e84d4b851896))
+
+### Features
+
+- Added "--variant" option to download command
+  ([`362c8e7`](https://github.com/JakeLunn/one-pace-assistant/commit/362c8e7115225e872e14e0ce9b6088ed215a15a4))
+
+`--variant extended` can now be passed optionally to download extended variants of arcs like wano.
+
+
 ## v0.1.0 (2026-01-22)
 
 ### Chores
@@ -12,6 +27,9 @@
 
 - Added license, disclaimer to readme
   ([`5597049`](https://github.com/JakeLunn/one-pace-assistant/commit/5597049b266a01403c1ac29d818e95a706a6930d))
+
+- Updated installation instructions in readme
+  ([`1a3e2c4`](https://github.com/JakeLunn/one-pace-assistant/commit/1a3e2c4e224baf49e9f69c396817ae27d1f53f3e))
 
 - Updated Readme
   ([`ef15333`](https://github.com/JakeLunn/one-pace-assistant/commit/ef1533327efc37b127276d955085e58e0aa56b91))
