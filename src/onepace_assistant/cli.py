@@ -309,7 +309,7 @@ def download(
 
         # Generate episode NFOs
         video_files = [f for f in downloaded_files if f.suffix.lower() in (".mkv", ".mp4", ".avi")]
-        generate_arc_nfos(arc, video_files, arc_output_dir)
+        generate_arc_nfos(arc, video_files, arc_output_dir, arcs=arcs)
 
         if not quiet:
             console.print(f"[green]Generated {len(video_files) + 1} NFO files[/green]")
@@ -423,7 +423,7 @@ def generate_nfo_cmd(ctx: click.Context, input_dir: Path, posters_dir: Path | No
             continue
 
         # Generate episode NFOs
-        nfo_paths = generate_arc_nfos(arc, video_files, arc_dir)
+        nfo_paths = generate_arc_nfos(arc, video_files, arc_dir, arcs=arcs)
         results["nfo_generated"] += len(nfo_paths)
         if not quiet:
             console.print(

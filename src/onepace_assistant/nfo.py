@@ -44,16 +44,30 @@ def generate_tvshow_nfo(output_path: Path) -> Path:
 
     return nfo_path
 
+def _get_season_number(arc: Arc, arcs: list[Arc]) -> int:
+    """Get season number based on slug's position in arc list."""
+    # start=1 because most tv shows don't start at season 0.
+    for i, a in enumerate(arcs, start=1):
+        if a.slug == arc.slug:
+            return i
+    # Fail back to 1 if it doesn't match for some reason.
+    return 1
 
 def generate_episode_nfo(
     arc: Arc,
     episode_number: int,
     video_filename: str,
     output_dir: Path,
-    season_number: int = 1,
+    season_number: int | None = None,
+    arcs: list[Arc] | None = None,
 ) -> Path:
     """Generate an episode NFO file."""
     root = ET.Element("episodedetails")
+
+    if season_number is None and arcs is not None:
+        season_number = _get_season_number(arc, arcs)
+    elif season_number is None:
+        season_number = 1
 
     # Episode title: "Arc Title - Episode Number" or just video filename stem
     episode_title = f"{arc.title} {episode_number:02d}"
@@ -87,7 +101,8 @@ def generate_arc_nfos(
     arc: Arc,
     video_files: list[Path],
     output_dir: Path,
-    season_number: int = 1,
+    season_number: int | None = None,
+    arcs: list[Arc] | None = None
 ) -> list[Path]:
     """Generate NFO files for all episodes in an arc."""
     nfo_paths = []
@@ -102,6 +117,7 @@ def generate_arc_nfos(
             video_filename=video_file.name,
             output_dir=output_dir,
             season_number=season_number,
+            arcs=arcs,
         )
         nfo_paths.append(nfo_path)
 
