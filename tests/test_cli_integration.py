@@ -1,9 +1,12 @@
 """Integration tests for CLI playlist selection logic."""
 
+from unittest.mock import patch
+
 import pytest
 from click.testing import CliRunner
 
 from onepace_assistant.cli import cli
+from onepace_assistant.downloader import DownloadError
 from onepace_assistant.models import Arc, PlayGroup, Playlist
 
 
@@ -119,3 +122,42 @@ class TestCLISmartDefaults:
         playlist = mock_arc.get_playlist(resolution=1080, sub="en", dub="ja")
         assert playlist is not None
         assert playlist.id == "ja_1080"
+
+
+class TestApiKeyValidation:
+    """Test --pixeldrain-api-key validation in the download command."""
+
+    @patch("onepace_assistant.cli.validate_api_key_sync", side_effect=DownloadError("Invalid PixelDrain API key"))
+    @patch("onepace_assistant.cli.fetch_metadata_sync")
+    def test_invalid_key_exits_before_fetching_metadata(self, mock_fetch_metadata, mock_validate):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["download", "some-arc", "--pixeldrain-api-key", "bad-key"])
+
+        assert result.exit_code == 1
+        assert "Invalid PixelDrain API key" in result.output
+        mock_fetch_metadata.assert_not_called()
+
+    @patch("onepace_assistant.cli.validate_api_key_sync")
+    @patch("onepace_assistant.cli.fetch_metadata_sync", side_effect=Exception("stop here"))
+    def test_valid_key_proceeds_to_metadata_fetch(self, mock_fetch_metadata, mock_validate):
+        runner = CliRunner()
+        runner.invoke(cli, ["download", "some-arc", "--pixeldrain-api-key", "good-key"])
+
+        mock_validate.assert_called_once_with("good-key")
+        mock_fetch_metadata.assert_called_once()
+
+    @patch("onepace_assistant.cli.validate_api_key_sync")
+    @patch("onepace_assistant.cli.fetch_metadata_sync", side_effect=Exception("stop here"))
+    def test_no_key_skips_validation(self, mock_fetch_metadata, mock_validate):
+        runner = CliRunner()
+        runner.invoke(cli, ["download", "some-arc"], env={"PIXELDRAIN_API_KEY": ""})
+
+        mock_validate.assert_not_called()
+
+    @patch("onepace_assistant.cli.validate_api_key_sync")
+    @patch("onepace_assistant.cli.fetch_metadata_sync", side_effect=Exception("stop here"))
+    def test_key_read_from_env_var(self, mock_fetch_metadata, mock_validate):
+        runner = CliRunner()
+        runner.invoke(cli, ["download", "some-arc"], env={"PIXELDRAIN_API_KEY": "env-key"})
+
+        mock_validate.assert_called_once_with("env-key")
