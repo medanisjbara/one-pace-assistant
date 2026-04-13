@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from onepace_assistant.models import Arc
-from onepace_assistant.nfo import generate_episode_nfo, generate_tvshow_nfo, _get_season_number
+from onepace_assistant.nfo import generate_episode_nfo, generate_tvshow_nfo
 
 
 class TestGenerateTvshowNfo:
@@ -123,33 +123,33 @@ class TestGenerateEpisodeNfo:
             tree = ET.parse(nfo_path)
             root = tree.getroot()
             assert root.find("season").text == "2"
-        
-        def test_season_number_falls_back_to_one(self, sample_arc):
-            with tempfile.TemporaryDirectory() as tmpdir:
-                output_dir = Path(tmpdir)
-                nfo_path = generate_episode_nfo(
-                    arc=sample_arc,
-                    episode_number=3,
-                    video_filename="Romance Dawn 03.mkv",
-                    output_dir=output_dir,
-                )
 
-                tree = ET.parse(nfo_path)
-                root = tree.getroot()
-                assert root.find("season").text == "1"
-        
-        def test_explicit_season_number_overrides_arcs(self, sample_arc):
-            arcs = [sample_arc]
-            with tempfile.TemporaryDirectory() as tmpdir:
-                output_dir = Path(tmpdir)
-                nfo_path = generate_episode_nfo(
-                    arc=sample_arc,
-                    episode_number=3,
-                    video_filename="Romance Dawn 03.mkv",
-                    output_dir=output_dir,
-                    season_number=5,
-                    arcs=arcs
-                )
+    def test_season_number_falls_back_to_one(self, sample_arc):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            nfo_path = generate_episode_nfo(
+                arc=sample_arc,
+                episode_number=3,
+                video_filename="Romance Dawn 03.mkv",
+                output_dir=output_dir,
+            )
+
+            tree = ET.parse(nfo_path)
+            root = tree.getroot()
+            assert root.find("season").text == "1"
+
+    def test_explicit_season_number_overrides_arcs(self, sample_arc):
+        arcs = [sample_arc]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            nfo_path = generate_episode_nfo(
+                arc=sample_arc,
+                episode_number=3,
+                video_filename="Romance Dawn 03.mkv",
+                output_dir=output_dir,
+                season_number=5,
+                arcs=arcs
+            )
 
             tree = ET.parse(nfo_path)
             root = tree.getroot()

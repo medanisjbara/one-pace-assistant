@@ -44,13 +44,14 @@ def generate_tvshow_nfo(output_path: Path) -> Path:
 
     return nfo_path
 
+
 def _get_season_number(arc: Arc, arcs: list[Arc]) -> int:
     """Get season number based on slug's position in arc list."""
     # start=1 because most tv shows don't start at season 0.
     for i, a in enumerate(arcs, start=1):
         if a.slug == arc.slug:
             return i
-    # Fail back to 1 if it doesn't match for some reason.
+    # Fall back to 1 if it doesn't match for some reason.
     return 1
 
 def generate_episode_nfo(
