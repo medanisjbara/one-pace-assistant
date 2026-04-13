@@ -374,6 +374,8 @@ pytest
 ruff check .
 ```
 
+**Important:** We use **Conventional Commits** to automatically increment the release version. Please use [Conventional Commits as defined here](https://www.conventionalcommits.org/en/v1.0.0/#summary) when making your commit messages for PRs. Failing to do is punishable by a disapproving grunt.
+
 ## License
 
 MIT
