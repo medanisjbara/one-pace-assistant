@@ -54,12 +54,13 @@ async def fetch_playlist_files(playlist: Playlist) -> PixelDrainList:
     )
 
 
-def fetch_playlist_files_sync(playlist: Playlist) -> PixelDrainList:
+def fetch_playlist_files_sync(playlist: Playlist, api_key: str | None = None) -> PixelDrainList:
     """Synchronous version of fetch_playlist_files."""
     url = f"{PIXELDRAIN_API_URL}/list/{playlist.id}"
+    auth = ("", api_key) if api_key else None
 
     with httpx.Client(timeout=30.0) as client:
-        response = client.get(url)
+        response = client.get(url, auth=auth)
         response.raise_for_status()
         data = response.json()
 
@@ -78,6 +79,19 @@ def fetch_playlist_files_sync(playlist: Playlist) -> PixelDrainList:
         download_href=data.get("download_href"),
         files=files,
     )
+
+
+def validate_api_key_sync(api_key: str) -> None:
+    """Validate a PixeldDrain API key against the /api/user endpoint.
+
+    Raises DownloadError if the key is invalid or the request fails.
+    """
+    with httpx.Client(timeout=10.0) as client:
+        response = client.get(f"{PIXELDRAIN_API_URL}/user", auth=("", api_key))
+
+    if response.status_code == 401:
+        raise DownloadError("Invalid PixelDrain API key")
+    response.raise_for_status()
 
 
 def _get_download_url(file_id: str) -> str:
@@ -118,6 +132,7 @@ def download_file_sync(
     output_dir: Path,
     progress: Progress,
     task_id: TaskID,
+    api_key: str | None = None,
 ) -> Path:
     """Synchronous version of download_file."""
     output_path = output_dir / file.name
@@ -128,9 +143,10 @@ def download_file_sync(
         return output_path
 
     url = _get_download_url(file.id)
+    auth = ("", api_key) if api_key else None
 
     with httpx.Client(timeout=None) as client:
-        with client.stream("GET", url) as response:
+        with client.stream("GET", url, auth=auth) as response:
             response.raise_for_status()
 
             with open(output_path, "wb") as f:
@@ -145,6 +161,7 @@ def download_playlist_sync(
     playlist: Playlist,
     output_dir: Path,
     resume: bool = True,
+    api_key: str | None = None,
 ) -> list[Path]:
     """Download all files from a playlist with progress display."""
     # Ensure output directory exists
@@ -152,7 +169,7 @@ def download_playlist_sync(
 
     # Fetch file list
     console.print(f"[cyan]Fetching file list from PixelDrain...[/cyan]")
-    file_list = fetch_playlist_files_sync(playlist)
+    file_list = fetch_playlist_files_sync(playlist, api_key=api_key)
 
     if not file_list.files:
         console.print("[yellow]No files found in playlist[/yellow]")
@@ -189,7 +206,7 @@ def download_playlist_sync(
             )
 
             try:
-                path = download_file_sync(file, output_dir, progress, task_id)
+                path = download_file_sync(file, output_dir, progress, task_id, api_key=api_key)
                 downloaded_paths.append(path)
             except Exception as e:
                 console.print(f"[red]Error downloading {file.name}: {e}[/red]")
@@ -202,6 +219,7 @@ def download_playlist_zip_sync(
     playlist: Playlist,
     output_dir: Path,
     resume: bool = True,
+    api_key: str | None = None,
 ) -> list[Path]:
     """Download all files from a playlist as a single zip archive.
     
@@ -213,7 +231,7 @@ def download_playlist_zip_sync(
 
     # Fetch file list to get download_href and file info
     console.print("[cyan]Fetching playlist info from PixelDrain...[/cyan]")
-    file_list = fetch_playlist_files_sync(playlist)
+    file_list = fetch_playlist_files_sync(playlist, api_key=api_key)
 
     if not file_list.files:
         console.print("[yellow]No files found in playlist[/yellow]")
@@ -247,6 +265,7 @@ def download_playlist_zip_sync(
         tmp_path = Path(tmp_file.name)
 
     try:
+        auth = ("", api_key) if api_key else None
         with Progress(
             TextColumn("[bold blue]Downloading zip", justify="right"),
             BarColumn(bar_width=None),
@@ -260,7 +279,7 @@ def download_playlist_zip_sync(
             console=console,
         ) as progress:
             with httpx.Client(timeout=None) as client:
-                with client.stream("GET", zip_url) as response:
+                with client.stream("GET", zip_url, auth=auth) as response:
                     response.raise_for_status()
                     
                     # Use content-length if available, otherwise use our estimate

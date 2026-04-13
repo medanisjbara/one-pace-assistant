@@ -13,6 +13,7 @@ from .downloader import (
     download_playlist_zip_sync,
     fetch_playlist_files_sync,
     format_size,
+    validate_api_key_sync,
 )
 from .nfo import generate_arc_nfos, generate_tvshow_nfo
 from .poster_utils import copy_poster_to_arc_dir, find_poster_for_arc
@@ -178,6 +179,12 @@ def info(ctx: click.Context, arc_slug: str) -> None:
     default=None,
     help="Optional: Directory containing poster images to copy after download",
 )
+@click.option(
+    "--pixeldrain-api-key",
+    default=None,
+    envvar="PIXELDRAIN_API_KEY",
+    help="Pixeldrain API key for authenticated requests",
+)
 @click.pass_context
 def download(
     ctx: click.Context,
@@ -192,9 +199,18 @@ def download(
     resume: bool,
     method: str,
     posters_dir: Path | None,
+    pixeldrain_api_key: str | None,
 ) -> None:
     """Download an arc."""
     quiet = ctx.obj.get("quiet", False)
+
+    # Validate API key before doing anything else
+    if pixeldrain_api_key:
+        try:
+            validate_api_key_sync(pixeldrain_api_key)
+        except DownloadError as e:
+            console.print(f"[red]{e}[/red]")
+            raise SystemExit(1)
 
     # Fetch metadata
     if not quiet:
@@ -252,7 +268,7 @@ def download(
     if dry_run:
         console.print("\n[yellow]DRY RUN - No files will be downloaded[/yellow]\n")
 
-        file_list = fetch_playlist_files_sync(playlist)
+        file_list = fetch_playlist_files_sync(playlist, api_key=pixeldrain_api_key)
         total_size = sum(f.size for f in file_list.files)
 
         table = Table(title="Files to Download")
@@ -280,21 +296,21 @@ def download(
             if not quiet:
                 console.print("[dim]💡 Tip: Use --method zip to download all as a single archive. This may help delay rate limits.[/dim]\n")
             # Force individual file downloads
-            downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume)
+            downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume, api_key=pixeldrain_api_key)
         elif method == "zip":
             # Force zip download
-            downloaded_files = download_playlist_zip_sync(playlist, arc_output_dir, resume=resume)
+            downloaded_files = download_playlist_zip_sync(playlist, arc_output_dir, resume=resume, api_key=pixeldrain_api_key)
         else:  # auto
             # Try zip first, fallback to individual on error
             try:
-                downloaded_files = download_playlist_zip_sync(playlist, arc_output_dir, resume=resume)
+                downloaded_files = download_playlist_zip_sync(playlist, arc_output_dir, resume=resume, api_key=pixeldrain_api_key)
             except (DownloadError, Exception) as e:
                 if not quiet:
                     console.print(
                         f"[yellow]Zip download failed ({e}), "
                         "falling back to individual downloads[/yellow]"
                     )
-                downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume)
+                downloaded_files = download_playlist_sync(playlist, arc_output_dir, resume=resume, api_key=pixeldrain_api_key)
     except Exception as e:
         console.print(f"[red]Download failed: {e}[/red]")
         raise SystemExit(1)

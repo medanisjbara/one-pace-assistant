@@ -2,15 +2,17 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from onepace_assistant.downloader import (
+    DownloadError,
     PixelDrainFile,
     PixelDrainList,
     Playlist,
     download_playlist_zip_sync,
+    validate_api_key_sync,
 )
 
 
@@ -72,3 +74,34 @@ class TestZipDownload:
             
             assert len(result) == 2
             assert all(p.exists() for p in result)
+
+
+class TestValidateApiKey:
+    """Tests for validate_api_key_sync."""
+
+    @patch("onepace_assistant.downloader.httpx.Client")
+    def test_valid_key_does_not_raise(self, mock_client_cls):
+        mock_response = mock_client_cls.return_value.__enter__.return_value.get.return_value
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+
+        validate_api_key_sync("valid-key")  # should not raise
+
+    @patch("onepace_assistant.downloader.httpx.Client")
+    def test_invalid_key_raises_download_error(self, mock_client_cls):
+        mock_response = mock_client_cls.return_value.__enter__.return_value.get.return_value
+        mock_response.status_code = 401
+
+        with pytest.raises(DownloadError, match="Invalid PixelDrain API key"):
+            validate_api_key_sync("bad-key")
+
+    @patch("onepace_assistant.downloader.httpx.Client")
+    def test_key_sent_as_basic_auth(self, mock_client_cls):
+        mock_get = mock_client_cls.return_value.__enter__.return_value.get
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.raise_for_status.return_value = None
+
+        validate_api_key_sync("my-api-key")
+
+        _, kwargs = mock_get.call_args
+        assert kwargs["auth"] == ("", "my-api-key")
