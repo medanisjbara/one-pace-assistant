@@ -1,6 +1,16 @@
 # CHANGELOG
 
 
+## v0.3.1 (2026-04-13)
+
+### Bug Fixes
+
+- Seasons are now properly generated for nfos
+  ([`f59418f`](https://github.com/JakeLunn/one-pace-assistant/commit/f59418f46f9ea2b00bcf1a14ddad4a81dea19aee))
+
+NOTE: This was fixed in pr 5, using semantic commit message to trigger release update.
+
+
 ## v0.3.0 (2026-04-13)
 
 ### Features
