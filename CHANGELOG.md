@@ -1,6 +1,16 @@
 # CHANGELOG
 
 
+## v0.3.0 (2026-04-13)
+
+### Features
+
+- Pixel drain API key support
+  ([`798fce9`](https://github.com/JakeLunn/one-pace-assistant/commit/798fce96df72dfbe5d594fd5f713c67fc93995d6))
+
+NOTE: using semantic commit message to trigger release.
+
+
 ## v0.2.0 (2026-01-23)
 
 ### Documentation
