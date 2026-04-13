@@ -1,3 +1,5 @@
 """One Pace Assistant - Download and organize One Pace files."""
 
-__version__ = "0.4.0"
+from importlib.metadata import version
+
+__version__ = version("onepace-assistant")
