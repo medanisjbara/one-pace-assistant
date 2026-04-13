@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.3.2 (2026-04-13)
+
+### Bug Fixes
+
+- Version number derive from metadata
+  ([`2f70e85`](https://github.com/JakeLunn/one-pace-assistant/commit/2f70e853b1e6bf7e5bebf6a7a03280e50ef23a62))
+
+version number (seen with --version arg) now is derived from the semantic versioning metadata
+  instead of a hard-coded value.
+
+
 ## v0.3.1 (2026-04-13)
 
 ### Bug Fixes
