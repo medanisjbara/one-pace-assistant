@@ -18,6 +18,14 @@ from .downloader import (
 from .nfo import generate_arc_nfos, generate_tvshow_nfo
 from .poster_utils import copy_poster_to_arc_dir, find_poster_for_arc
 from .scraper import ScraperError, fetch_metadata_sync
+from .syncer import (
+    SyncError,
+    SyncOptions,
+    build_rsync_command,
+    check_remote_rsync,
+    check_rsync_installed,
+    run_rsync,
+)
 
 console = Console()
 
@@ -583,6 +591,125 @@ def add_posters_cmd(
         console.print(f"  [red]Errors: {len(results['errors'])}[/red]")
         for error in results["errors"]:
             console.print(f"    [red]• {error}[/red]")
+
+
+@cli.command()
+@click.option(
+    "-s",
+    "--source",
+    "source_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=Path("./downloads"),
+    help="Local directory to sync from",
+)
+@click.option(
+    "-t",
+    "--target",
+    required=True,
+    help="Remote target (e.g., user@host:/path/to/media)",
+)
+@click.option(
+    "--ssh-key",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to SSH private key",
+)
+@click.option(
+    "--port",
+    type=int,
+    default=None,
+    help="SSH port",
+)
+@click.option(
+    "-n",
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be transferred without actually syncing",
+)
+@click.option(
+    "--delete",
+    is_flag=True,
+    help="Delete remote files not present locally",
+)
+@click.option(
+    "--exclude",
+    multiple=True,
+    help="Exclude pattern (can be specified multiple times)",
+)
+@click.option(
+    "--bwlimit",
+    type=str,
+    default=None,
+    help="Bandwidth limit (e.g., '5000' for 5000 KBps, '10m' for 10 MBps)",
+)
+@click.pass_context
+def rsync(
+    ctx: click.Context,
+    source_dir: Path,
+    target: str,
+    ssh_key: Path | None,
+    port: int | None,
+    dry_run: bool,
+    delete: bool,
+    exclude: tuple[str, ...],
+    bwlimit: str | None,
+) -> None:
+    """Sync downloaded files to a remote host via rsync over SSH."""
+    quiet = ctx.obj.get("quiet", False)
+    verbose = ctx.obj.get("verbose", False)
+
+    # Pre-flight: check local rsync
+    try:
+        check_rsync_installed()
+    except SyncError as e:
+        console.print(f"[red]{e}[/red]")
+        raise SystemExit(1)
+
+    # Pre-flight: check remote rsync
+    try:
+        check_remote_rsync(target, ssh_key=ssh_key, port=port)
+    except SyncError as e:
+        console.print(f"[red]{e}[/red]")
+        raise SystemExit(1)
+
+    # Validate source has content
+    if not any(source_dir.iterdir()):
+        console.print(f"[red]Source directory is empty: {source_dir}[/red]")
+        raise SystemExit(1)
+
+    options = SyncOptions(
+        source=source_dir,
+        target=target,
+        ssh_key=ssh_key,
+        port=port,
+        dry_run=dry_run,
+        delete=delete,
+        exclude=exclude,
+        bwlimit=bwlimit,
+        verbose=verbose,
+    )
+
+    if not quiet:
+        console.print(f"[cyan]Syncing {source_dir} -> {target}[/cyan]")
+        if dry_run:
+            console.print("[yellow]DRY RUN - no files will be transferred[/yellow]")
+        if delete:
+            console.print(
+                "[yellow]--delete is set: remote files not present locally will be removed[/yellow]"
+            )
+        if verbose:
+            cmd = build_rsync_command(options)
+            console.print(f"[dim]Command: {' '.join(cmd)}[/dim]")
+        console.print()
+
+    try:
+        run_rsync(options)
+    except SyncError as e:
+        console.print(f"\n[red]Sync failed: {e}[/red]")
+        raise SystemExit(1)
+
+    if not quiet:
+        console.print("\n[bold green]Sync complete![/bold green]")
 
 
 def main() -> None:

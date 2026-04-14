@@ -13,6 +13,7 @@ An unofficial CLI tool to download and organize [One Pace](https://onepace.net) 
 - 📥 **Download arcs** with configurable resolution, audio, and subtitles
 - 📝 **Auto-generate NFO metadata** compatible with Jellyfin, Emby, and Plex
 - 🖼️ **Poster management** for rich media library presentation
+- 🔄 **Rsync to remote servers** — transfer files to a Jellyfin/Plex/Emby host over SSH
 - 📋 **Multiple output formats** (table, JSON, plain) for scripting
 
 ## Installation
@@ -297,6 +298,50 @@ You can create your own poster images or find fan-made sets online. A popular co
 
 ---
 
+### `onepace rsync` — Sync Files to a Remote Server
+
+Transfer your downloaded files to a remote machine (e.g., a server running Jellyfin, Plex, or Emby) via rsync over SSH.
+
+> ⚠️ **Requires rsync** installed on both the local and remote machine. The command will check both before starting and provide install instructions if missing.
+
+```bash
+# Sync downloads to a remote server
+onepace rsync --target user@myserver:/media/anime/OnePace
+
+# Sync from a custom source directory
+onepace rsync --source ~/OnePace --target user@myserver:/media/anime/OnePace
+
+# Preview what would be transferred (no actual transfer)
+onepace rsync --target user@myserver:/media/anime/OnePace --dry-run
+
+# Use a specific SSH key and port
+onepace rsync --target user@myserver:/media/anime/OnePace --ssh-key ~/.ssh/id_rsa --port 2222
+
+# Limit bandwidth to 5000 KBps
+onepace rsync --target user@myserver:/media/anime/OnePace --bwlimit 5000
+
+# Remove remote files that no longer exist locally
+onepace rsync --target user@myserver:/media/anime/OnePace --delete
+
+# Exclude certain files from the sync
+onepace rsync --target user@myserver:/media/anime/OnePace --exclude "*.nfo" --exclude "poster.jpg"
+```
+
+**Full options reference:**
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--source` | `-s` | `./downloads` | Local directory to sync from |
+| `--target` | `-t` | — | Remote target (e.g., `user@host:/path`) **required** |
+| `--ssh-key` | — | — | Path to SSH private key |
+| `--port` | — | 22 | SSH port |
+| `--dry-run` | `-n` | — | Preview without transferring |
+| `--delete` | — | — | Delete remote files not present locally |
+| `--exclude` | — | — | Exclude pattern (repeatable) |
+| `--bwlimit` | — | — | Bandwidth limit (e.g., `5000` KBps, `10m` MBps) |
+
+---
+
 ## Media Server Setup
 
 ### Jellyfin / Emby
@@ -357,6 +402,13 @@ done
 ```bash
 # You already have video files organized by arc
 onepace generate-nfo --input ~/media/OnePace --posters ~/posters
+```
+
+**Download and sync to a remote server:**
+```bash
+# Download an arc, then sync to your media server
+onepace download romance-dawn -o ~/OnePace
+onepace rsync -s ~/OnePace -t user@myserver:/media/anime/OnePace
 ```
 
 ---
