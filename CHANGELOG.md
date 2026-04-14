@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v0.4.0 (2026-04-14)
+
+### Documentation
+
+- Added conventional commits to readme
+  ([`8902da7`](https://github.com/JakeLunn/one-pace-assistant/commit/8902da7d015d8f6151d0a9d07d94a389ddcbcec5))
+
+### Features
+
+- Rsync command
+  ([`7357e57`](https://github.com/JakeLunn/one-pace-assistant/commit/7357e572d678ed359c469fb03050e995b792030f))
+
+`onepace rsync` to sync files to a target server over rsync ssh. Note: This requires rsync to be
+  installed on both machines. This is meant to be a simple helper for quickly moving your media
+  files to the target server, should you be downloading and serving the media on separate machines.
+
+
 ## v0.3.2 (2026-04-13)
 
 ### Bug Fixes
