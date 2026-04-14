@@ -54,6 +54,7 @@ testpaths = ["tests"]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/onepace_assistant/_version.py:__version__"]
 branch = "main"
 commit_message = "chore(release): {version}"
 tag_format = "v{version}"
