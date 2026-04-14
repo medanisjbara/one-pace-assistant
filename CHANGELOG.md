@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.4.1 (2026-04-14)
+
+### Bug Fixes
+
+- Fixed auto versioning again
+  ([`e7a1cc2`](https://github.com/JakeLunn/one-pace-assistant/commit/e7a1cc2ebe823edbfe81f980b371d75240cd1453))
+
+
 ## v0.4.0 (2026-04-14)
 
 ### Documentation
